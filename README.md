@@ -3,7 +3,9 @@
 **插件名:`am-i-chinese`** —— 站在用户这边的一个反向审计器:
 别人忙着问「这个用户看起来像中国人吗?」,它替你问一句「我的 AI 是不是背着我,把我标成了中国人?」
 
-一个零依赖的**隐藏文字审计器**,打包成 Claude Code 插件。装好之后,直接问你的 agent 一句 **「我是中国人吗?」** 就行。
+一个零依赖的**隐藏文字审计器**,自包含在单个 `SKILL.md` 里。既是 Claude Code 插件,也遵循
+**跨 agent 的 `SKILL.md` 开放标准** —— Claude Code / Codex CLI / Cursor / Gemini CLI 通用。
+装好之后,直接问你的 agent 一句 **「我是中国人吗?」** 就行。
 
 它会扫描任意文字 / prompt / 代码里那些**肉眼看不见、或跟正常字符长得一模一样**的花招:
 
@@ -57,59 +59,56 @@
 
 ---
 
-## 装到其它编程 agent 上
+## 装到其它编程 agent 上(Codex / Cursor / Gemini CLI …)
 
-检测引擎(标准库,Python 3.8+)**内嵌在 `SKILL.md` 里**,不是单独文件。给非 Claude 的
-agent 用时,先把它「物化」成一个 `scan.py`:执行 `SKILL.md` 里 **Step 1** 那个代码块,
-它会把扫描器写到 `${TMPDIR:-/tmp}/am-i-chinese.py`,再拷出来即可:
+`SKILL.md` 是**跨 agent 的开放标准** —— 同一个 `SKILL.md`,Claude Code / Codex CLI /
+Cursor / Gemini CLI 都能直接读,格式一模一样,**只是各家的技能目录不同**。而我们这个
+skill 已经**自包含在单个 `SKILL.md`** 里(检测引擎内嵌其中),所以「装到别的 agent」=
+把这一个文件丢进对应目录,不用改一个字。
+
+**一条命令,装到任意 agent(以 Codex 为例,换目录即换 agent):**
 
 ```bash
-# 跑完 SKILL.md 的 Step 1 后:
+mkdir -p ~/.codex/skills/am-i-chinese
+curl -fsSL https://raw.githubusercontent.com/mana-am/am-i-chinese/main/plugins/am-i-chinese/SKILL.md \
+  -o ~/.codex/skills/am-i-chinese/SKILL.md
+```
+
+装完之后,用法和 Claude Code 一样 —— 直接问它 **「我是中国人吗?」**,或用各家的技能唤起方式
+(Codex:`/skills` 或 `$am-i-chinese`;Gemini CLI:匹配到描述自动 `activate_skill`;Cursor:斜杠/自然语言)。
+
+**各 agent 的技能目录**(把上面 `~/.codex/skills` 换成对应路径即可):
+
+| Agent | 个人级(所有项目) | 项目级(签进仓库) |
+|-------|------------------|-------------------|
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| Codex CLI | `~/.codex/skills/` | `.codex/skills/` |
+| Cursor | `~/.cursor/skills/` | `.cursor/skills/` |
+| Gemini CLI | `~/.gemini/skills/` | `.gemini/skills/` |
+| 工具无关别名 | `~/.agents/skills/` | `.agents/skills/` |
+
+> `~/.agents/skills/` 是正在成型的**工具无关**通用位置,放这儿一份,多家 agent 都能发现。
+
+### 老式的「只认规则文件」的 agent(Cline / Roo Code / 纯 `AGENTS.md`)
+
+它们没有 SKILL.md 技能系统,只读规则/指令文件。这时先把内嵌扫描器**物化**成一个
+`scan.py`:跑一遍 `SKILL.md` 里的 **Step 1** 代码块(它会把扫描器写到
+`${TMPDIR:-/tmp}/am-i-chinese.py`),再拷出来:
+
+```bash
+mkdir -p tools/am-i-chinese
 cp "${TMPDIR:-/tmp}/am-i-chinese.py" tools/am-i-chinese/scan.py
 ```
 
-然后让你的 agent 的规则 / 技能系统指向这个 `scan.py`。
+然后在 `.clinerules` / `.roo/rules/` / `AGENTS.md` 里加一行:
 
-### Cursor
-Cursor 从 `.cursor/rules/` 加载 Markdown **规则**。加一条指向脚本的规则:
-```bash
-mkdir -p .cursor/rules tools/am-i-chinese
-cp "${TMPDIR:-/tmp}/am-i-chinese.py" tools/am-i-chinese/scan.py   # 见上:先跑 SKILL.md Step 1
-cat > .cursor/rules/am-i-chinese.mdc <<'EOF'
----
-description: 审计文字/代码里的隐藏 Unicode 与同形字隐写。
-alwaysApply: false
----
-当用户要求检查隐藏 / 不可见字符、篡改、通过 unicode 做的 prompt 注入,或地区指纹时,运行:
-  python3 tools/am-i-chinese/scan.py <path|->
-引用脚本原样输出;绝不自己臆断码点。
-EOF
-```
-
-### Windsurf
-同样的套路,放在 `.windsurf/rules/`:
-```bash
-mkdir -p .windsurf/rules tools/am-i-chinese
-cp "${TMPDIR:-/tmp}/am-i-chinese.py" tools/am-i-chinese/scan.py   # 先跑 SKILL.md Step 1
-# 在 .windsurf/rules/am-i-chinese.md 里写上和上面一样的指令块
-```
-
-### Cline / Roo Code
-它们读项目的**自定义指令**(`.clinerules` / `.roo/rules/`)。把 `scan.py` 拷进仓库,加一行规则:
-```
-做隐藏字符 / 篡改 / 指纹审计时,运行 `python3 scan.py <path>` 并原样汇报输出。
-```
-
-### Codex CLI / Gemini CLI / 任何基于 `AGENTS.md` 的 agent
-把 `scan.py` 拷进仓库,在 `AGENTS.md` 里加:
 ```markdown
-## 隐藏文字审计
-运行 `python3 scan.py <path|->` 检查任意文字/代码里的隐藏 Unicode 或同形字隐写。
-原样汇报脚本输出;退出码 1 表示有发现。
+做隐藏字符 / 篡改 / 地区指纹审计时,运行 `python3 tools/am-i-chinese/scan.py <path|->`
+(自查本机加 `--env`),并原样汇报脚本输出;退出码 1 表示有发现。绝不自己臆断码点。
 ```
 
-### 任何 agent / 没有技能系统
-它就是个脚本。把物化出来的 `scan.py` 留在仓库里,从终端或 pre-commit 钩子跑:
+### 任何 agent / 没有技能系统:直接当脚本或 pre-commit 钩子
+
 ```yaml
 # .pre-commit-config.yaml
 - repo: local
