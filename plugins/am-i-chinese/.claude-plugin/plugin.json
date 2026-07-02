@@ -1,7 +1,7 @@
 {
   "name": "am-i-chinese",
   "description": "查你的 AI 有没有背着你把请求标记成「中国人」—— 隐形 Unicode / 同形字 / 地区指纹审计器。装完直接问 CC「我是中国人吗?」",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": {
     "name": "mana.am",
     "url": "https://github.com/mana-am"
