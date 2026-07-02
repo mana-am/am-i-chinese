@@ -14,7 +14,7 @@
 - 2026 年 Claude Code 隐写事件里那套**地区指纹暗号**:非 ASCII 撇号 + 日期分隔符
   `-`→`/` 调包,以 `Asia/Shanghai` / `Asia/Urumqi` 时区为触发条件。
 
-检测由一个确定性的 Python 脚本完成 —— **LLM 永远不需要(也不应该)自己用肉眼去看那些隐形字符**。
+检测由一段确定性的 Python 代码完成(**内嵌在 `SKILL.md` 里**,agent 直接执行)—— **LLM 永远不需要(也不应该)自己用肉眼去看那些隐形字符**。
 
 ---
 
@@ -47,7 +47,8 @@
 
 ![使用](assets/screenshot-usage.png)
 
-> 上图是**真实运行**的输出:安装后的 skill 被 `我是中国人吗?` 自动唤起,跑了 `scan.py --env`,
+> 上图是**真实运行**的输出:安装后的 skill 被 `我是中国人吗?` 自动唤起,先把 `SKILL.md`
+> 内嵌的扫描器物化到临时文件,再跑 `--env`,
 > 给出真实结论。为避免截图泄露自己的私有端点,`--env` **默认对 `ANTHROPIC_BASE_URL` 脱敏**
 > (只报「是否自定义端点」,不打印完整 URL);本地想看全的加 `--show-endpoint`。
 
@@ -58,14 +59,22 @@
 
 ## 装到其它编程 agent 上
 
-引擎就一个文件 —— `scan.py`(标准库,Python 3.8+)。丢进仓库,让你的 agent 的
-规则 / 技能系统指向它即可。
+检测引擎(标准库,Python 3.8+)**内嵌在 `SKILL.md` 里**,不是单独文件。给非 Claude 的
+agent 用时,先把它「物化」成一个 `scan.py`:执行 `SKILL.md` 里 **Step 1** 那个代码块,
+它会把扫描器写到 `${TMPDIR:-/tmp}/am-i-chinese.py`,再拷出来即可:
+
+```bash
+# 跑完 SKILL.md 的 Step 1 后:
+cp "${TMPDIR:-/tmp}/am-i-chinese.py" tools/am-i-chinese/scan.py
+```
+
+然后让你的 agent 的规则 / 技能系统指向这个 `scan.py`。
 
 ### Cursor
 Cursor 从 `.cursor/rules/` 加载 Markdown **规则**。加一条指向脚本的规则:
 ```bash
 mkdir -p .cursor/rules tools/am-i-chinese
-cp plugins/am-i-chinese/scan.py tools/am-i-chinese/
+cp "${TMPDIR:-/tmp}/am-i-chinese.py" tools/am-i-chinese/scan.py   # 见上:先跑 SKILL.md Step 1
 cat > .cursor/rules/am-i-chinese.mdc <<'EOF'
 ---
 description: 审计文字/代码里的隐藏 Unicode 与同形字隐写。
@@ -81,7 +90,7 @@ EOF
 同样的套路,放在 `.windsurf/rules/`:
 ```bash
 mkdir -p .windsurf/rules tools/am-i-chinese
-cp plugins/am-i-chinese/scan.py tools/am-i-chinese/
+cp "${TMPDIR:-/tmp}/am-i-chinese.py" tools/am-i-chinese/scan.py   # 先跑 SKILL.md Step 1
 # 在 .windsurf/rules/am-i-chinese.md 里写上和上面一样的指令块
 ```
 
@@ -100,14 +109,14 @@ cp plugins/am-i-chinese/scan.py tools/am-i-chinese/
 ```
 
 ### 任何 agent / 没有技能系统
-它就是个脚本。把 `scan.py` 留在仓库里,从终端或 pre-commit 钩子跑:
+它就是个脚本。把物化出来的 `scan.py` 留在仓库里,从终端或 pre-commit 钩子跑:
 ```yaml
 # .pre-commit-config.yaml
 - repo: local
   hooks:
     - id: am-i-chinese
       name: am-i-chinese
-      entry: python3 plugins/am-i-chinese/scan.py
+      entry: python3 tools/am-i-chinese/scan.py
       language: system
       pass_filenames: true
 ```
@@ -130,9 +139,11 @@ cp plugins/am-i-chinese/scan.py tools/am-i-chinese/
 .claude-plugin/marketplace.json          # 市场目录(名为 mana)
 plugins/am-i-chinese/
   ├── .claude-plugin/plugin.json         # 插件清单
-  ├── SKILL.md                           # 技能说明(模型自动触发 + /am-i-chinese 斜杠命令)
-  └── scan.py                            # 零依赖检测引擎
+  └── SKILL.md                           # 技能说明 + 内嵌的零依赖检测引擎(自包含单文件)
 ```
+
+> 检测引擎的完整代码就**内嵌在 `SKILL.md` 里**:skill 触发时,coding agent 执行其中的
+> Step 1 代码块把扫描器物化到临时文件,再运行 —— 单文件、免路径解析、拷到哪都能跑。
 
 ## 许可
 
