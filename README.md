@@ -1,9 +1,10 @@
 # 中国人 · Am I Chinese?
 
-**slug: `am-i-chinese`** — the defensive counterpart to [`isChinaUser`](https://github.com/yArna/isChinaUser):
+**plugin: `am-i-chinese`** — the defensive counterpart to [`isChinaUser`](https://github.com/yArna/isChinaUser):
 one asks "does this browser look Chinese?", this asks "did my AI agent secretly tag me as one?"
 
-A tiny, zero-dependency **hidden-text auditor** for AI coding agents.
+A tiny, zero-dependency **hidden-text auditor** for AI coding agents, packaged as a
+Claude Code plugin. Install it, then just ask your agent **「我是中国人吗?」**
 
 It scans any text/prompt/code for the tricks that are invisible or pixel-identical to
 normal characters:
@@ -19,54 +20,52 @@ normal characters:
 The detection is a deterministic Python script — the LLM never has to (and never should)
 eyeball invisible characters itself.
 
-```bash
-python3 scan.py .                 # scan a directory
-pbpaste | python3 scan.py -       # scan clipboard (macOS)
-python3 scan.py --env             # inspect base-url / timezone / proxies
-python3 scan.py --json file.md    # machine-readable
-```
-
-Exit `0` clean · `1` findings · `2` error. Requires only Python 3.8+ stdlib.
-
 ---
 
-## Install
+## Install (Claude Code)
 
-Two files — `SKILL.md` (instructions) + `scan.py` (engine). For Claude Code:
+Two steps: **add the marketplace, then install the plugin.**
+
+```text
+/plugin marketplace add mana-am/am-i-chinese
+/plugin install am-i-chinese@mana
+```
 
 ![install](assets/screenshot-install.png)
 
+`/plugin marketplace add mana-am/am-i-chinese` registers this repo as a plugin
+marketplace named `mana`; `/plugin install am-i-chinese@mana` installs the skill from it.
+Later, refresh with `/plugin marketplace update mana`.
+
 ## Use
 
-`--env` checks your machine · `pbpaste | scan.py -` checks any text · `scan.py .` checks a project:
+Just ask Claude Code in plain language — the skill auto-triggers:
+
+```text
+> 我是中国人吗?
+```
+
+…or run it explicitly with the slash command `/am-i-chinese`. It checks your
+environment (base-url / timezone / proxies), and can scan any pasted text, file, or
+whole project for hidden characters.
 
 ![usage](assets/screenshot-usage.png)
 
+Under the hood it just runs a stdlib-only Python script — exit `0` clean · `1` findings ·
+`2` error, so you can also wire it straight into CI or a pre-commit hook.
+
 ---
 
-## Install on your coding agent
+## Install on other coding agents
 
-The package is two files — `SKILL.md` (instructions) and `scan.py` (the engine).
-Drop them where your agent looks for skills, then invoke by asking the agent to
-"check this for hidden characters" or run `scan.py` directly.
-
-### Claude Code (native Agent Skills)
-```bash
-# personal (all projects)
-mkdir -p ~/.claude/skills/am-i-chinese
-cp SKILL.md scan.py ~/.claude/skills/am-i-chinese/
-
-# or per-project (checked into the repo)
-mkdir -p .claude/skills/am-i-chinese
-cp SKILL.md scan.py .claude/skills/am-i-chinese/
-```
-Claude Code auto-discovers it from the `description:` frontmatter, or call `/am-i-chinese`.
+The engine is a single file — `scan.py` (stdlib Python 3.8+). Drop it in the repo and
+point your agent's rule/skill system at it.
 
 ### Cursor
 Cursor loads Markdown **rules** from `.cursor/rules/`. Add a rule that points at the script:
 ```bash
 mkdir -p .cursor/rules tools/am-i-chinese
-cp scan.py tools/am-i-chinese/
+cp plugins/am-i-chinese/scan.py tools/am-i-chinese/
 cat > .cursor/rules/am-i-chinese.mdc <<'EOF'
 ---
 description: Audit text/code for hidden-Unicode & homoglyph steganography.
@@ -83,7 +82,7 @@ EOF
 Same pattern, under `.windsurf/rules/`:
 ```bash
 mkdir -p .windsurf/rules tools/am-i-chinese
-cp scan.py tools/am-i-chinese/
+cp plugins/am-i-chinese/scan.py tools/am-i-chinese/
 # create .windsurf/rules/am-i-chinese.md with the same instruction block as above
 ```
 
@@ -111,7 +110,7 @@ pre-commit hook:
   hooks:
     - id: am-i-chinese
       name: am-i-chinese
-      entry: python3 scan.py
+      entry: python3 plugins/am-i-chinese/scan.py
       language: system
       pass_filenames: true
 ```
@@ -129,6 +128,16 @@ tagged outgoing requests by (a) swapping the date separator `2026-06-30` → `20
 that prompt. Anthropic said it was an anti-resale/anti-distillation experiment and rolled it
 back. `am-i-chinese` detects that class of marker, and the broader family of invisible-Unicode
 tampering, in any text an agent touches.
+
+## Repo layout
+
+```text
+.claude-plugin/marketplace.json          # marketplace catalog (name: mana)
+plugins/am-i-chinese/
+  ├── .claude-plugin/plugin.json         # plugin manifest
+  ├── SKILL.md                           # skill instructions (model-invoked + /am-i-chinese)
+  └── scan.py                            # the zero-dependency detection engine
+```
 
 ## License
 

@@ -1,0 +1,25 @@
+{
+  "name": "mana",
+  "owner": {
+    "name": "mana.am",
+    "url": "https://github.com/mana-am"
+  },
+  "metadata": {
+    "description": "mana.am 的公开插件市场",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "am-i-chinese",
+      "source": "./plugins/am-i-chinese",
+      "description": "查你的 AI 有没有背着你把请求标记成「中国人」—— 隐形 Unicode / 同形字 / 地区指纹审计器。装完直接问 CC「我是中国人吗?」",
+      "version": "1.0.0",
+      "author": {
+        "name": "mana.am",
+        "url": "https://github.com/mana-am"
+      },
+      "license": "CC0-1.0",
+      "keywords": ["unicode", "steganography", "homoglyph", "privacy", "security", "claude-code"]
+    }
+  ]
+}
