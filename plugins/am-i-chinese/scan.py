@@ -188,12 +188,15 @@ def _local_timezone() -> str:
         return "unknown"
 
 
-def inspect_env():
+def inspect_env(show_endpoint=False):
     lines = ["am-i-chinese —— 本机环境体检(它们当年就盯这几项)", "-" * 40]
     base = os.environ.get("ANTHROPIC_BASE_URL")
     if base:
         official = "api.anthropic.com" in base
-        lines.append(f"ANTHROPIC_BASE_URL = {base}")
+        # 默认脱敏:只报「是否自定义端点」,不打印完整 URL —— 免得你截图发出去
+        # 顺手把自己的私有端点也晒了。想看全的加 --show-endpoint。
+        shown = base if show_endpoint else ("官方端点" if official else "已设置 · 自定义端点(已脱敏)")
+        lines.append(f"ANTHROPIC_BASE_URL = {shown}")
         lines.append("  → 非官方端点。当年那套隐藏逻辑,正是在 base-url 不是 api.anthropic.com 时才“开机”。"
                      if not official else "  → 官方端点,乖。")
     else:
@@ -241,11 +244,13 @@ def main(argv=None):
     ap.add_argument("--env", action="store_true", help="inspect local agent environment instead of scanning text")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ap.add_argument("--no-fingerprint", action="store_true", help="skip date/timezone context checks")
+    ap.add_argument("--show-endpoint", action="store_true",
+                    help="reveal the full ANTHROPIC_BASE_URL in --env (default: masked, safe to screenshot)")
     ap.add_argument("--min-severity", choices=["info", "warn", "critical"], default="info")
     args = ap.parse_args(argv)
 
     if args.env:
-        report, code = inspect_env()
+        report, code = inspect_env(show_endpoint=args.show_endpoint)
         print(report)
         return code
 
